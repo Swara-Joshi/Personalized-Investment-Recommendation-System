@@ -27,3 +27,7 @@ tqdm==4.65.0
 matplotlib==3.7.2
 seaborn==0.12.2
 
+# Deep Learning
+tensorflow==2.13.0
+keras==2.13.1
+
