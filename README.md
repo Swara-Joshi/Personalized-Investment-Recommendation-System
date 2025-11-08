@@ -17,6 +17,9 @@ Personalized-Investment-Recommendation-System/
 │   │   ├── market_agent_preprocessing.py      # Market Agent data preprocessing
 │   │   ├── risk_agent_preprocessing.py        # Risk Agent data preprocessing
 │   │   └── recommendation_agent_preprocessing.py  # Recommendation Agent data preprocessing
+│   ├── data_loader.py                # Historical price data loader
+│   ├── load_data_auto.py             # Auto-loading data loader
+│   ├── load_data_example.py          # Example usage of data loader
 │   └── collect_data.py               # Main data collection script
 ├── config/
 │   └── config.py                     # Configuration file
@@ -147,12 +150,90 @@ Edit `config/config.py` to customize:
 - User profile generation parameters
 - API keys and data sources
 
+## Data Loading for Model Training
+
+### Overview
+
+Comprehensive historical price data loaders for model training and analysis.
+
+### Features
+
+#### 1. Manual Data Loader (`data_loader.py`)
+- Load single or multiple stock/ETF/crypto price data on demand
+- Load combined price data from CSV files
+- Standardize column names and data formats
+- Create combined DataFrames with MultiIndex
+- Get data summaries and statistics
+
+#### 2. Auto-Loading Data Loader (`load_data_auto.py`)
+- Automatically loads all CSV files on initialization
+- Quick access to individual tickers or combined DataFrame
+- Simplified API for rapid data access
+- Automatic filtering of non-price files
+
+### Usage
+
+#### Manual Loader (On-Demand Loading)
+
+```python
+from src.data_loader import HistoricalPriceDataLoader
+
+# Initialize loader
+loader = HistoricalPriceDataLoader()
+
+# Load single stock
+aapl_data = loader.load_single_stock('AAPL')
+
+# Load multiple stocks
+price_data = loader.load_multiple_stocks(['AAPL', 'MSFT', 'GOOGL'])
+
+# Create combined DataFrame
+combined_df = loader.create_combined_dataframe(tickers=['AAPL', 'MSFT', 'GOOGL'])
+
+# Get data summary
+summary = loader.get_data_summary(ticker='AAPL')
+```
+
+#### Auto-Loading (Automatic Loading)
+
+```python
+from src.load_data_auto import HistoricalPriceDataLoader
+
+# Initialize loader (automatically loads all CSVs)
+loader = HistoricalPriceDataLoader()
+
+# Get combined DataFrame
+combined_df = loader.get_dataframe()
+
+# Get specific ticker
+aapl_df = loader.get_dataframe('AAPL')
+
+# Get list of available tickers
+tickers = loader.get_tickers()
+
+# Get summary
+summary = loader.get_summary()
+```
+
+### Run Examples
+
+```bash
+# Manual loader example
+python src/load_data_example.py
+
+# Auto-loading example
+python src/load_data_auto.py
+```
+
 ## Next Steps
 
-After completing Phase 1, the system is ready for:
-- Phase 2: Model Training (LSTM, GPT fine-tuning, RL)
-- Phase 3: Agent Implementation
-- Phase 4: Recommendation System Integration
+The system is ready for:
+- Feature engineering for ML models
+- LSTM model implementation for time-series prediction
+- GPT fine-tuning setup for recommendation generation
+- Reinforcement Learning implementation for portfolio optimization
+- Agent Implementation
+- Recommendation System Integration
 
 ## License
 
