@@ -1,0 +1,61 @@
+paths:
+  raw_news_csv: "sentiment_pipeline/data/sentiment/yahoo_news_raw.csv"
+  labeled_news_csv: "sentiment_pipeline/data/sentiment/yahoo_news_labeled.csv"
+  dataset_dir: "sentiment_pipeline/data/sentiment"
+  hf_dataset_dir: "sentiment_pipeline/data/hf_datasets"
+  sentiment_model_dir: "sentiment_pipeline/models/sentiment_model"
+  lstm_predictions: "data/lstm_predictions.csv"
+  combined_predictions: "sentiment_pipeline/data/combined_predictions.json"
+
+tickers:
+  - "AAPL"
+  - "TSLA"
+  - "NVDA"
+  - "MSFT"
+  - "AMZN"
+  - "META"
+  - "GOOGL"
+  - "JPM"
+  - "SPY"
+
+collection:
+  lookback_days: 90
+  max_headlines_per_ticker: 500
+
+labeling:
+  finbert_model: "ProsusAI/finbert"
+  min_confidence: 0.75
+  price_confirm_threshold: 0.02
+  high_quality_confidence: 0.8
+
+training:
+  model_name: "mistralai/Mistral-7B-Instruct-v0.3"
+  quantization_bits: 4
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+  learning_rate: 0.0002
+  num_epochs: 3
+  batch_size: 4
+  gradient_accumulation_steps: 4
+  warmup_steps: 100
+  fp16: true
+
+wandb:
+  project: "phase3-sentiment"
+  entity: null
+
+inference:
+  max_new_tokens: 32
+  temperature: 0.2
+
+daily_update:
+  lookback_days: 7
+  run_time_est: "18:00"
+  retrain_weekday: "Sunday"
+

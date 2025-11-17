@@ -26,15 +26,24 @@ Personalized-Investment-Recommendation-System/
 ├── data/
 │   ├── raw/                          # Raw collected data
 │   └── processed/                    # Processed data for ML models
+├── sentiment_pipeline/
+│   ├── config.yaml                   # Sentiment pipeline configuration
+│   ├── requirements.txt              # Focused dependencies (HF, LoRA, etc.)
+│   ├── data/                         # Yahoo Finance raw & labeled news, HF datasets
+│   ├── scripts/                      # Data collection, labeling, prep, inference, automation
+│   ├── notebooks/
+│   │   └── sentiment_finetuning.ipynb# Colab-ready LoRA fine-tuning notebook
+│   ├── models/                       # LoRA adapters (saved after fine-tuning)
+│   └── results/                      # Sentiment plots & combined signals
 ├── requirements.txt                  # Python dependencies
 └── README.md                         # This file
 ```
 
-## Phase 1: Data Collection & Preprocessing
+## Data Collection & Preprocessing
 
 ### Overview
 
-Phase 1 focuses on collecting and preprocessing data for three main agents:
+This layer focuses on collecting and preprocessing data for three main agents:
 
 1. **Risk Tolerance Agent**: User profiling & risk scoring
 2. **Market Agent**: Market trend prediction (time-series + sentiment)
@@ -150,7 +159,7 @@ Edit `config/config.py` to customize:
 - User profile generation parameters
 - API keys and data sources
 
-## Phase 2: Market Agent – ML Prototyping
+## Market Agent – LSTM Prototyping
 
 ### Overview
 
@@ -314,7 +323,7 @@ Output (next-day Close price)
 
 ---
 
-### Summary: Phase 2 Workflow
+### Summary: Market Agent Workflow
 
 1. **Data Loading (2.1)**: ✅ Gather and combine historical prices
 2. **Preprocessing (2.2)**: Scale, clean, and split data into train/val
@@ -399,53 +408,112 @@ python src/load_data_example.py
 python src/load_data_auto.py
 ```
 
+## Sentiment Intelligence & Signal Integration
+
+### Overview
+
+`sentiment_pipeline/` extends the advisor with real Yahoo Finance news, hybrid FinBERT + price-action labeling, LoRA fine-tuning on Mistral-7B, and signal fusion with the LSTM forecasts.
+
+### Setup
+
+```bash
+pip install -r sentiment_pipeline/requirements.txt
+```
+
+Create/update `sentiment_pipeline/config.yaml` to control ticker universe, confidence thresholds, LoRA hyperparameters, output paths, and scheduling windows.
+
+### 1. Collect Yahoo Finance Headlines
+
+```bash
+python sentiment_pipeline/scripts/data_collection.py
+```
+
+- Uses `yfinance` + RSS fallback for `AAPL, TSLA, NVDA, MSFT, AMZN, META, GOOGL, JPM, SPY`.
+- Captures headline, timestamp, publisher, URL for the last 90 days (configurable).
+- Writes `sentiment_pipeline/data/sentiment/yahoo_news_raw.csv`.
+
+### 2. Auto-Label with FinBERT + Price Confirmation
+
+```bash
+$env:KMP_DUPLICATE_LIB_OK='TRUE'  # Windows OpenMP workaround
+python sentiment_pipeline/scripts/label_news.py
+```
+
+- Runs `ProsusAI/FinBERT` and keeps rows where confidence ≥ 0.75.
+- Verifies sentiment with ±2% next-day price moves via `yfinance`.
+- Saves curated rows (date, ticker, headline, sentiment, confidence, price_change, source) to `sentiment_pipeline/data/sentiment/yahoo_news_labeled.csv`.
+
+### 3. Build HF Datasets & Visuals
+
+```bash
+python sentiment_pipeline/scripts/prepare_dataset.py
+```
+
+- Filters for confidence ≥ 0.8 and formats prompts as `Headline: … Sentiment: …`.
+- Produces Hugging Face datasets (80/20 split) in `sentiment_pipeline/data/hf_datasets/{train,validation}`.
+- Exports `sentiment_pipeline/results/sentiment_distribution.png`.
+
+### 4. Fine-Tune Mistral-7B with LoRA (Colab-ready)
+
+Notebook: `sentiment_pipeline/notebooks/sentiment_finetuning.ipynb`
+
+- Mount Google Drive, set `PROJECT_ROOT`, and run dependency install cell.
+- Loads datasets via `datasets.load_from_disk`, config via `sentiment_pipeline/utils/config_loader`.
+- Uses 4-bit quantization (`bitsandbytes`) and LoRA (r=16, α=32, dropout=0.05 on q/k/v/o projections).
+- Training config: lr=2e-4, epochs=3, batch_size=4, grad_accum=4, warmup=100, fp16 enabled, W&B logging optional.
+- Saves adapters + tokenizer to `sentiment_pipeline/models/sentiment_model`.
+
+### 5. Inference & Signal Fusion
+
+```bash
+python sentiment_pipeline/scripts/sentiment_inference.py   # requires trained adapters
+python sentiment_pipeline/scripts/combine_signals.py       # needs data/lstm_predictions.csv
+```
+
+- `sentiment_inference.py` loads the LoRA adapter, exposes `predict_sentiment` + `batch_predict`, and prints example outputs.
+- `combine_signals.py` merges LSTM price moves with sentiment, scores agreement, and writes `sentiment_pipeline/data/combined_predictions.json`.
+
+### 6. Automated Daily Updates
+
+```bash
+python sentiment_pipeline/scripts/daily_update.py
+```
+
+- Schedules a 6 PM EST job (configurable) to pull 7-day headlines, label with the current model, append to the dataset, and optionally trigger weekly dataset refreshes.
+
+### 7. Tests
+
+```bash
+pytest sentiment_pipeline/tests
+```
+
+Ensures prompt formatting + signal combination utilities stay stable as the pipeline evolves.
+
 ## Implementation Status
 
 ### ✅ Completed
 
-- **Phase 1**: Data Collection & Preprocessing
-  - Historical price data collection
-  - Market sentiment collection
-  - User profile generation
-  - Data preprocessing for all agents
-
-- **Phase 2.1**: Data Loading
-  - Manual data loader
-  - Auto-loading data loader
-  - Data validation and standardization
+- Data collection & preprocessing: historical prices, news sentiment captures, synthetic user profiles, preprocessing pipelines per agent.
+- Market agent data loaders: manual + auto loaders with validation, combined DataFrame builders, example scripts.
+- Sentiment intelligence foundation: Yahoo Finance scraping, FinBERT hybrid labeling, HF dataset export, LoRA training notebook scaffolding, inference/integration scripts, and unit tests.
 
 ### 🚧 In Progress
 
-- **Phase 2.2-2.4**: Market Agent ML Prototyping
-  - Data preprocessing pipeline
-  - Sequence creation for LSTM
-  - LSTM model implementation
-  - Model training infrastructure
+- Market agent feature engineering and LSTM training loops (sequence creation + model orchestration).
+- LoRA adapter training/export (awaiting Colab or local GPU run for `sentiment_finetuning.ipynb`).
 
 ### 📋 Planned
 
-- **Phase 2.5**: Model Evaluation
-  - Performance metrics (RMSE, MAE, MAPE)
-  - Prediction visualization
-  - Model comparison and analysis
-
-- **Phase 3**: Agent Implementation
-  - Risk Tolerance Agent
-  - Market Agent integration
-  - Recommendation Agent
-
-- **Phase 4**: System Integration
-  - Multi-agent coordination
-  - Recommendation system
-  - User interface
+- Market agent evaluation (RMSE/MAE/MAPE, prediction visualizations, ticker comparisons).
+- Recommendation/risk agents + portfolio orchestration that consume both LSTM forecasts and sentiment scores.
+- User-facing surfaces and automation (dashboards, alerts, scheduled retraining).
 
 ## Next Steps
 
-The system is ready for:
-1. **Complete Phase 2.2-2.4**: Implement data preprocessing, sequence creation, and LSTM model training
-2. **Phase 2.5**: Model evaluation and performance analysis
-3. **Phase 3**: Implement remaining agents (Risk Tolerance, Recommendation)
-4. **Phase 4**: System integration and deployment
+1. Run `sentiment_pipeline/notebooks/sentiment_finetuning.ipynb` (or equivalent script) to produce LoRA adapters in `sentiment_pipeline/models/sentiment_model`, then rerun inference/integration scripts.
+2. Export the existing LSTM price predictions to `data/lstm_predictions.csv` so that `sentiment_pipeline/scripts/combine_signals.py` can emit final trading signals.
+3. Finish the Market Agent training/evaluation loop (sequence creation, LSTM model training, RMSE/MAE dashboards).
+4. Integrate sentiment + market outputs into the recommendation and risk agents, then layer on a UI or API for investment advice delivery.
 
 ## License
 

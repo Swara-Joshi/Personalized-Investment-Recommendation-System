@@ -1,0 +1,2 @@
+"""Sentiment intelligence pipeline package."""
+
