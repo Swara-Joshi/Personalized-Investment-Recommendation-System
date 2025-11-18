@@ -23,8 +23,14 @@ def fetch_news_for_ticker(ticker: str, lookback_days: int) -> List[dict]:
     rows: List[dict] = []
     cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
 
-    ticker_obj = yf.Ticker(ticker)
-    news_items = ticker_obj.news or []
+    # Try yfinance first, fall back to RSS if it fails
+    news_items = []
+    try:
+        ticker_obj = yf.Ticker(ticker)
+        news_items = ticker_obj.news or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("yfinance failed for %s, using RSS fallback: %s", ticker, exc)
+        news_items = []
 
     if not news_items:
         rss_url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
